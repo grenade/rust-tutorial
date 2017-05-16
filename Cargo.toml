@@ -1,0 +1,9 @@
+[package]
+name = "tutorial"
+version = "0.1.0"
+authors = ["Rob Thijssen <rthijssen@gmail.com>"]
+
+[dependencies]
+
+[workspace]
+members = ["redisish", "mailbox"]
