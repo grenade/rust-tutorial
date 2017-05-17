@@ -5,3 +5,4 @@ authors = ["Rob Thijssen <rthijssen@gmail.com>"]
 
 [dependencies]
 redisish = { path = "../redisish" }
+clap = "2.24.2"
