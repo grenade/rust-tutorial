@@ -63,29 +63,37 @@ fn main() {
   fn handle_request<S: Storage<String>>(stream: &mut TcpStream, storage: Arc<S>) {
     let mut buffer = String::new();
     stream.read_to_string(&mut buffer);
-    let result = parse(&buffer).unwrap();
-    match result {
-      Command::Publish(message) => storage.put(message),
-      Command::Retrieve => {
-        match stream.write(storage.get().unwrap().as_bytes()) {
-          Ok(_) => println!("Response sent."),
-          Err(e) => println!("Failed sending response: {}", e),
+    match parse(&buffer) {
+      Ok(result) => {
+        match result {
+          Command::Publish(message) => storage.put(message),
+          Command::Retrieve => {
+            match stream.write(storage.get().unwrap().as_bytes()) {
+              Ok(_) => println!("Response sent."),
+              Err(e) => println!("Failed sending response: {}", e),
+            }
+          },
         }
       },
+      Err(e) => println!("Failed to parse request stream: {:?}", e),
     }
   }
   let arced_mailbox: Arc<SyncedMailbox<String>> = Arc::new(SyncedMailbox::new());
-  let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-  for stream in listener.incoming() {
-    let cloned_arc = arced_mailbox.clone();
-    thread::spawn(move || match stream {
-      Ok(mut stream) => {
-        //handle_request(&mut stream, cloned_arc.as_ref());
-        handle_request(&mut stream, cloned_arc);
-        println!("Request received.")
-      },
-      Err(e) => println!("Failed receiving request: {}", e),
-    });
+  match TcpListener::bind("127.0.0.1:7878") {
+    Ok(listener) => {
+      for stream in listener.incoming() {
+        let cloned_arc = arced_mailbox.clone();
+        thread::spawn(move || match stream {
+          Ok(mut stream) => {
+            //handle_request(&mut stream, cloned_arc.as_ref());
+            handle_request(&mut stream, cloned_arc);
+            println!("Request received.")
+          },
+          Err(e) => println!("Failed receiving request: {}", e),
+        });
+      }
+    },
+    Err(e) => println!("Failed to bind to tcp listener: {}", e),
   }
 }
 
@@ -109,6 +117,12 @@ trait Storage<T> {
 impl<T> Storage<T> for SyncedMailbox<T> {
   fn put(&self, item: T) {
     self.all_the_mail.lock().unwrap().push_back(item);
+    /*
+    match self.all_the_mail.lock() {
+      Ok(mut lock) => lock.push_back(item),
+      Err(e) => println!("Failed to obtain put lock: {}", e),
+    }
+    */
   }
   fn get(&self) -> Option<T> {
     self.all_the_mail.lock().unwrap().pop_back()
